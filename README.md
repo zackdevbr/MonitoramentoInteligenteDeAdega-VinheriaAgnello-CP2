@@ -1,4 +1,6 @@
 # 🍷 Vinheria Agnello - Monitoramento Inteligente de Adega
+<img width="544" height="535" alt="image" src="https://github.com/user-attachments/assets/5facb4d3-da17-4360-9cc7-2cb27ebea6d7" />
+
 
 ## 📌 Descrição
 
