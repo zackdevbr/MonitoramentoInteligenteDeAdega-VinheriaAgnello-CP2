@@ -1,205 +1,303 @@
-# 🍷 Vinheria Agnello - Monitoramento Inteligente de Adega
+# 🍷 Smart Solutions — Sistema Inteligente para Vinheria Agnello
 <img width="544" height="535" alt="image" src="https://github.com/user-attachments/assets/5facb4d3-da17-4360-9cc7-2cb27ebea6d7" />
 
+## 📌 Sobre o Projeto
 
-## 📌 Descrição
+Este projeto foi desenvolvido para a disciplina de **Edge Computing & Computer Systems** da FIAP com o objetivo de criar uma solução inteligente de monitoramento para a **Vinheria Agnello**.
 
-Este projeto foi desenvolvido pelo grupo **AdegaSense** para a disciplina de **Edge Computing da FIAP**, com o objetivo de criar uma solução inteligente para a **Vinheria Agnello**, uma vinheria tradicional que deseja expandir sua atuação para o ambiente digital sem perder a experiência personalizada do atendimento presencial.
+A proposta consiste em simular um sistema embarcado capaz de monitorar as condições ideais de armazenamento dos vinhos, garantindo qualidade e preservação do produto através da análise de:
 
-A proposta consiste em um sistema de monitoramento ambiental para adegas, capaz de acompanhar fatores que influenciam diretamente a qualidade dos vinhos: **temperatura, umidade e luminosidade**.
+- 🌡️ Temperatura
+- 💧 Umidade
+- ☀️ Luminosidade
 
-O sistema utiliza sensores conectados ao Arduino para analisar o ambiente em tempo real, exibir as informações em um display LCD, emitir alertas visuais e sonoros e registrar situações críticas em memória.
-
----
-
-## 🎯 Objetivo do Projeto
-
-O objetivo principal é garantir que os vinhos estejam armazenados em condições adequadas, evitando problemas como:
-
-- Exposição excessiva à luz;
-- Temperatura inadequada;
-- Baixa ou alta umidade;
-- Risco de oxidação;
-- Perda de qualidade do vinho;
-- Danos aos rótulos e às rolhas.
-
-Além disso, o projeto busca entregar uma experiência de usuário mais clara, intuitiva e próxima do atendimento presencial de uma vinheria.
+Além disso, o projeto busca aproximar a experiência digital da vinheria física, oferecendo uma interface intuitiva e interativa através do display LCD.
 
 ---
 
-## 🍇 Contexto do Problema
+# 🧠 Funcionalidades do Sistema
 
-A qualidade do vinho pode ser afetada por diversos fatores ambientais.
-
-A **luminosidade** em excesso pode causar alterações químicas no vinho, principalmente em vinhos brancos e espumantes, que são mais sensíveis à luz.
-
-A **temperatura** também é um fator essencial. O calor excessivo pode prejudicar a conservação do vinho, enquanto grandes variações térmicas podem alterar aroma, sabor e qualidade.
-
-A **umidade** influencia diretamente na conservação da rolha e do rótulo. Um ambiente muito seco pode ressecar o vedante, aumentando o risco de oxidação. Já a umidade excessiva pode danificar rótulos e favorecer a proliferação de fungos.
-
-Por isso, foi desenvolvido um sistema capaz de monitorar esses três fatores e alertar quando algum deles estiver fora dos limites adequados.
+✅ Monitoramento em tempo real  
+✅ Leitura de temperatura e umidade com DHT11  
+✅ Leitura de luminosidade com LDR  
+✅ Calibração automática do sensor LDR  
+✅ Média das leituras para maior estabilidade  
+✅ Display LCD I2C 16x2  
+✅ Relógio em tempo real com RTC DS1307  
+✅ Sistema de alertas visuais e sonoros  
+✅ Armazenamento de logs na EEPROM  
+✅ Alternância de idioma (Português/Inglês)  
+✅ Interface UX personalizada  
+✅ Sistema de classificação do ambiente  
+✅ Monitor Serial para debug e monitoramento  
 
 ---
 
-## ⚙️ Tecnologias e Componentes
+# ⚙️ Tecnologias e Componentes Utilizados
+
+## Hardware
 
 - Arduino Uno
 - Sensor DHT11
 - Sensor LDR
-- Display LCD 16x2 com módulo I2C
 - RTC DS1307
-- EEPROM interna do Arduino
-- LEDs verde, amarelo e vermelho
+- Display LCD I2C 16x2
+- LEDs
 - Buzzer
-- Push button para alteração de idioma
-- Resistores
+- Push Button
 - Protoboard
-- Jumpers
-- Simulador Wokwi
-- Linguagem C/C++ para Arduino
+- Resistores
 
 ---
 
-## 🧠 Funcionamento do Sistema
+## Bibliotecas
 
-O sistema realiza a leitura dos sensores e interpreta as condições do ambiente da adega.
-
-O **DHT11** mede a temperatura e a umidade.  
-O **LDR** mede a luminosidade do ambiente.  
-O **RTC DS1307** fornece data e hora em tempo real.  
-O **LCD I2C** exibe as informações para o usuário.  
-A **EEPROM** armazena logs sempre que uma situação crítica é detectada.
-
-Para melhorar a estabilidade das leituras, o sistema realiza múltiplas medições e calcula uma média dos valores.
-
-A luminosidade passa por um processo de calibração automática, utilizando os valores mínimo e máximo captados pelo LDR. Depois disso, a função `map()` converte a leitura analógica para uma escala percentual de **0% a 100%**, facilitando a interpretação.
+```cpp
+Wire.h
+LiquidCrystal_I2C.h
+RTClib.h
+EEPROM.h
+DHT.h
+```
 
 ---
 
-## 🌡️ Parâmetros Monitorados
+# 🔌 Pinagem do Projeto
 
-### Temperatura
-
-A temperatura ideal para conservação dos vinhos fica próxima de **13°C**.
-
-No projeto, foi definida uma faixa aceitável entre:
-
-| Faixa | Estado |
+| Componente | Porta Arduino |
 |---|---|
-| Abaixo de 10°C | Temperatura baixa |
-| 10°C a 16°C | Condição adequada |
-| Acima de 16°C | Temperatura alta |
+| DHT11 | D2 |
+| Botão Idioma | D3 |
+| Buzzer | D9 |
+| LED Crítico | D10 |
+| LED Alerta | D11 |
+| LED OK | D12 |
+| LDR | A0 |
+| LCD SDA | SDA |
+| LCD SCL | SCL |
+| RTC SDA | A4 |
+| RTC SCL | A5 |
 
 ---
 
-### Umidade
+# 🌡️ Controle Inteligente do Ambiente
 
-A umidade ideal para armazenamento de vinhos fica próxima de **70%**, com faixa aceitável entre **60% e 80%**.
+## Temperatura
 
-| Faixa | Estado |
-|---|---|
-| Abaixo de 60% | Umidade baixa |
-| 60% a 80% | Condição adequada |
-| Acima de 80% | Umidade alta |
-
----
-
-### Luminosidade
-
-A luminosidade deve ser baixa, pois a exposição excessiva à luz pode prejudicar a qualidade do vinho.
-
-| Faixa | Estado |
-|---|---|
-| Baixa luminosidade | Ambiente ideal |
-| Luminosidade média | Estado de atenção |
-| Luminosidade alta | Estado crítico |
-
----
-
-## 🚦 Estados do Sistema
-
-O projeto utiliza LEDs e buzzer para indicar o estado atual da adega.
-
-| Estado | Condição | Indicação |
-|---|---|---|
-| 🟢 Ideal | Temperatura, umidade e luminosidade adequadas | LED verde |
-| 🟡 Atenção | Luminosidade em nível intermediário | LED amarelo + buzzer curto |
-| 🔴 Crítico | Temperatura, umidade ou luminosidade fora do limite | LED vermelho + buzzer |
-
----
-
-## 🖥️ Interface do Usuário
-
-O display LCD 16x2 exibe as informações em telas alternadas, facilitando a leitura dos dados.
-
-As telas exibidas são:
-
-- Data e hora;
-- Temperatura atual;
-- Umidade atual;
-- Luminosidade em porcentagem;
-- Status geral da adega.
-
-Também foram adicionados ícones personalizados no LCD, como:
-
-- Taça de vinho;
-- Gota para umidade;
-- Símbolo de luminosidade.
-
----
-
-## 🌐 Diferencial UX
-
-Como diferencial de experiência do usuário, o projeto possui:
-
-- Tela inicial personalizada com o nome **Vinheria Agnello**;
-- Ícones visuais no LCD;
-- Mensagens simples e intuitivas;
-- Botão para alternar idioma entre **Português** e **Inglês**;
-- Status geral da adega;
-- Alertas visuais e sonoros;
-- Registro automático de situações críticas.
-
-Esses recursos tornam o sistema mais amigável, visual e próximo de uma experiência de atendimento personalizado.
-
----
-
-## 🕒 RTC - Data e Hora
-
-O projeto utiliza o módulo **RTC DS1307** para manter o controle de data e hora.
-
-Essas informações são exibidas no LCD e também utilizadas nos registros de logs armazenados na EEPROM.
-
-O LCD I2C e o RTC compartilham o barramento I2C do Arduino:
-
-| Função | Porta Arduino Uno |
-|---|---|
-| SDA | A4 |
-| SCL | A5 |
-
----
-
-## 💾 Armazenamento de Logs na EEPROM
-
-Sempre que uma condição crítica é detectada, o sistema registra um log na EEPROM contendo:
-
-- Data e hora;
-- Temperatura;
-- Umidade;
-- Luminosidade;
-- Tipo de alerta detectado.
-
-Os tipos de alerta são classificados da seguinte forma:
-
-| Código | Alerta |
-|---|---|
-| 1 | Temperatura crítica |
-| 2 | Umidade crítica |
-| 4 | Luminosidade crítica |
-
-Caso mais de um problema ocorra ao mesmo tempo, os códigos são somados.
-
-Exemplo:
+Faixa ideal:
 
 ```txt
-Código 5 = Temperatura crítica + Luminosidade crítica
+10°C até 16°C
+```
+
+Faixa crítica:
+
+```txt
+Abaixo de 7°C ou acima de 19°C
+```
+
+---
+
+## Umidade
+
+Faixa ideal:
+
+```txt
+60% até 80%
+```
+
+Faixa crítica:
+
+```txt
+Abaixo de 50% ou acima de 90%
+```
+
+---
+
+## Luminosidade
+
+O sistema utiliza o sensor LDR com calibração automática e conversão utilizando a função `map()`.
+
+Classificação:
+
+| Luminosidade | Estado |
+|---|---|
+| 0% - 30% | Ideal |
+| 31% - 60% | Alerta |
+| 61% - 100% | Crítico |
+
+---
+
+# 🚦 Sistema de Alertas
+
+## LEDs
+
+🟢 Verde → Ambiente ideal  
+🟡 Amarelo → Ambiente em alerta  
+🔴 Vermelho → Ambiente crítico  
+
+---
+
+## Buzzer
+
+O buzzer emite alertas sonoros a cada 5 segundos:
+
+- Alerta → som moderado
+- Crítico → som intenso
+
+---
+
+# 🖥️ Interface LCD
+
+O display LCD apresenta:
+
+- Data
+- Hora
+- Temperatura
+- Umidade
+- Luminosidade
+- Status geral da adega
+
+Além disso, o projeto possui:
+
+✅ Tela de boas-vindas  
+✅ Animação inicial  
+✅ Ícones personalizados  
+✅ Interface bilíngue  
+
+---
+
+# 🌐 Sistema Bilíngue
+
+O botão conectado ao pino D3 permite alternar entre:
+
+- 🇧🇷 Português
+- 🇺🇸 English
+
+---
+
+# 💾 EEPROM — Registro de Logs
+
+O sistema registra automaticamente situações de alerta e criticidade na EEPROM.
+
+São armazenados:
+
+- Data
+- Hora
+- Temperatura
+- Umidade
+- Luminosidade
+- Tipo de erro detectado
+
+Os logs são gravados a cada 60 segundos enquanto houver alguma anomalia no ambiente.
+
+---
+
+# 🧮 Funcionamento da Luminosidade
+
+O LDR realiza leituras analógicas entre:
+
+```txt
+0 até 1023
+```
+
+Após a calibração automática, os valores são convertidos para porcentagem:
+
+```cpp
+map(raw, ldrMin, ldrMax, 100, 0)
+```
+
+Isso garante:
+
+✅ Mais luz → maior porcentagem  
+✅ Menos luz → menor porcentagem  
+
+---
+
+# 📟 Monitor Serial
+
+O Serial Monitor exibe informações completas do sistema:
+
+```txt
+Leitura 22/05/2026 14:32:10
+Temp: 13.2C
+Umid: 72%
+Luz: 18%
+Status: IDEAL
+```
+
+---
+
+# 🎨 Diferenciais do Projeto
+
+## UX e Interface
+
+- Sistema visual intuitivo
+- Interface dinâmica
+- Ícones personalizados
+- Navegação automática entre telas
+- Animação de inicialização
+
+---
+
+## Edge Computing
+
+O sistema realiza:
+
+- processamento local
+- tomada de decisão embarcada
+- armazenamento local
+- monitoramento em tempo real
+
+---
+
+# ⚠️ Dificuldades Encontradas
+
+- Inicialmente, o sensor LDR apresentava os valores invertidos. O problema foi resolvido ajustando a lógica da função `map()` para que ambientes mais iluminados apresentassem porcentagens maiores.
+
+- O sensor DHT11 apresentou instabilidade em leituras muito rápidas. Para resolver isso, foi reduzida a frequência de leitura e adicionada validação utilizando `isnan()`.
+
+- Durante a montagem física do projeto, alguns componentes e conexões apresentaram mau contato na protoboard, principalmente nos jumpers e no display LCD, causando falhas temporárias de comunicação. O problema foi resolvido reorganizando a montagem e substituindo conexões defeituosas.
+
+- O LCD possui limitação de caracteres personalizados. Para resolver isso, foi feita uma otimização dos ícones utilizados na interface.
+
+---
+
+# ▶️ Simulação Wokwi
+
+https://wokwi.com/projects/464730953131805697
+
+---
+
+# 📂 Estrutura do Repositório
+
+```txt
+📁 projeto-edge-vinheria
+ ┣ 📄 README.md
+ ┗ 📄 código do arduino
+```
+
+---
+
+# 👨‍💻 Integrantes — Smart Solutions
+
+| Nome | RM |
+|---|---|
+| Eduarda Soares | RM569369 |
+| Isac Nilton Fernandes de Oliveira | RM573282 |
+| João Benedito de Oliveira Simplicio | RM570206 |
+| Julia Souza Matarazzo | RM571340 |
+| Mariana Malagutti | RM570290 |
+
+---
+
+# 🎓 FIAP — Edge Computing & Computer Systems
+
+Projeto acadêmico desenvolvido para fins educacionais utilizando conceitos de:
+
+- Edge Computing
+- Sistemas Embarcados
+- IoT
+- Monitoramento Inteligente
+- UX em dispositivos embarcados
+- Automação
