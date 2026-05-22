@@ -4,456 +4,283 @@
 #include <EEPROM.h>
 #include "DHT.h"
 
-// ================= PINOS =================
 #define DHTPIN 2
-#define DHTTYPE DHT11
+#define DHTTYPE DHT22
 #define LDR A0
-
-#define BTN_IDIOMA 3
-
+#define BTN 3
 #define LED_OK 12
 #define LED_ALERTA 11
 #define LED_CRITICO 10
 #define BUZZER 9
 
-// ================= OBJETOS =================
-DHT dht(DHTPIN, DHTTYPE);
-LiquidCrystal_I2C lcd(0x27, 16, 2);
+DHT dht(DHTPIN,DHTTYPE);
+LiquidCrystal_I2C lcd(0x27,16,2);
 RTC_DS1307 rtc;
 
-// ================= CONFIGURAÇÕES =================
-bool idiomaPT = true;
-int utcOffset = -3;
+bool pt=true;
+const int UTC=0;
 
-const float TEMP_MIN = 10.0;
-const float TEMP_MAX = 16.0;
+float temp=0,umid=0;
+int luz=0,tela=0,addr=0,ldrMin=1023,ldrMax=0;
 
-const float UMID_MIN = 60.0;
-const float UMID_MAX = 80.0;
+unsigned long tLeitura,tTela,tBtn,tBuzz,tLog;
 
-const int LUZ_OK = 35;
-const int LUZ_ALERTA = 70;
+const float TMIN=10,TMAX=16,TCRITMIN=7,TCRITMAX=19;
+const float UMIN=60,UMAX=80,UCRITMIN=50,UCRITMAX=90;
+const int LOK=30,LALERTA=60;
+const unsigned long T_LEIT=10000,T_TELA=3000,T_BUZZ=5000,T_LOG=60000;
 
-// ================= VARIÁVEIS =================
-float temp = 0;
-float umid = 0;
-int luz = 0;
+byte t1[8]={B00111,B01000,B01000,B11111,B11111,B11111,B11111,B01111};
+byte t2[8]={B11100,B00010,B00010,B11111,B11111,B11111,B11111,B11110};
+byte gota[8]={B00100,B00100,B01010,B01010,B10001,B10001,B10001,B01110};
+byte sol[8]={B00100,B10101,B01110,B11111,B01110,B10101,B00100,B00000};
 
-int ldrMin = 1023;
-int ldrMax = 0;
-
-int tela = 0;
-int enderecoEEPROM = 0;
-
-unsigned long tempoLeitura = 0;
-unsigned long tempoTela = 0;
-unsigned long tempoBotao = 0;
-
-const unsigned long INTERVALO_LEITURA = 10000;
-const unsigned long INTERVALO_TELA = 3000;
-
-// ================= CARACTERES LCD =================
-byte taca1[8] = {
-  B00111, B01000, B01000, B11111,
-  B11111, B11111, B11111, B01111
-};
-
-byte taca2[8] = {
-  B11100, B00010, B00010, B11111,
-  B11111, B11111, B11111, B11110
-};
-
-byte gota[8] = {
-  B00100, B00100, B01010, B01010,
-  B10001, B10001, B10001, B01110
-};
-
-byte sol[8] = {
-  B00100, B10101, B01110, B11111,
-  B01110, B10101, B00100, B00000
-};
-
-// ================= SETUP =================
-void setup() {
+void setup(){
   Serial.begin(9600);
-
-  pinMode(LED_OK, OUTPUT);
-  pinMode(LED_ALERTA, OUTPUT);
-  pinMode(LED_CRITICO, OUTPUT);
-  pinMode(BUZZER, OUTPUT);
-  pinMode(BTN_IDIOMA, INPUT_PULLUP);
-
+  pinMode(LED_OK,OUTPUT);
+  pinMode(LED_ALERTA,OUTPUT);
+  pinMode(LED_CRITICO,OUTPUT);
+  pinMode(BUZZER,OUTPUT);
+  pinMode(BTN,INPUT_PULLUP);
   dht.begin();
-
   lcd.init();
   lcd.backlight();
-
-  lcd.createChar(0, taca1);
-  lcd.createChar(1, taca2);
-  lcd.createChar(2, gota);
-  lcd.createChar(3, sol);
-
-  if (!rtc.begin()) {
-    lcd.clear();
-    lcd.print("Erro no RTC");
-    while (true);
+  lcd.createChar(0,t1);
+  lcd.createChar(1,t2);
+  lcd.createChar(2,gota);
+  lcd.createChar(3,sol);
+  if(!rtc.begin()){
+    lcd.print("Erro RTC");
+    while(true);
   }
-
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-
-  logoInicial();
+  rtc.adjust(DateTime(F(__DATE__),F(__TIME__)));
+  logo();
   calibrarLDR();
   lerSensores();
-  mostrarTela();
+  analisar();
+  telaLCD();
+  Serial.println("Sistema iniciado");
 }
 
-// ================= LOOP =================
-void loop() {
-  verificarBotaoIdioma();
-
-  if (millis() - tempoLeitura >= INTERVALO_LEITURA) {
-    tempoLeitura = millis();
-
+void loop(){
+  botaoIdioma();
+  if(millis()-tLeitura>=T_LEIT){
+    tLeitura=millis();
     lerSensores();
-    analisarAmbiente();
+    analisar();
+    buzzer();
     salvarLog();
-    imprimirSerial();
+    serialLog();
   }
-
-  if (millis() - tempoTela >= INTERVALO_TELA) {
-    tempoTela = millis();
-
-    tela++;
-    if (tela > 4) tela = 0;
-
-    mostrarTela();
+  if(millis()-tTela>=T_TELA){
+    tTela=millis();
+    tela=(tela+1)%5;
+    telaLCD();
   }
 }
-
-// ================= LOGO / BOAS-VINDAS =================
-void logoInicial() {
+void logo(){
   lcd.clear();
-
-  lcd.setCursor(0, 0);
-  lcd.print(" Bem-vindo a");
-  lcd.setCursor(0, 1);
+  lcd.setCursor(0,0);
   lcd.print("Smart Solutions");
-  delay(1800);
-
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Smart Solutions");
-
-  for (int i = 0; i < 16; i++) {
-    lcd.setCursor(i, 1);
-    lcd.print(">");
-    delay(120);
-    lcd.setCursor(i, 1);
-    lcd.print(" ");
-  }
-
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("  SMART TECH");
-
-  lcd.setCursor(3, 1);
-  lcd.print("[");
-  lcd.write(byte(0));
-  lcd.write(byte(1));
-  lcd.print("] ");
-  lcd.print("EDGE");
-
+  lcd.setCursor(0,1);
+  lcd.print("Vinheria Agn.");
   delay(2000);
-
   lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Projeto para:");
-  lcd.setCursor(0, 1);
-  lcd.print("Vinheria Agnello");
-  delay(2000);
-
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Iniciando");
-  lcd.setCursor(0, 1);
-  lcd.print("sensores");
-
-  for (int i = 8; i < 13; i++) {
-    lcd.setCursor(i, 1);
+  lcd.print("Inicializando");
+  for(int i=0;i<5;i++){
     lcd.print(".");
-    delay(350);
+    delay(300);
   }
-
-  delay(800);
 }
-
-// ================= CALIBRAÇÃO LDR =================
-void calibrarLDR() {
+void calibrarLDR(){
   lcd.clear();
-  lcd.print("Calibrando LDR");
-
-  for (int i = 0; i < 30; i++) {
-    int valor = analogRead(LDR);
-
-    if (valor < ldrMin) ldrMin = valor;
-    if (valor > ldrMax) ldrMax = valor;
-
-    delay(100);
+  lcd.print("Calibrando");
+  for(int i=0;i<30;i++){
+    int v=analogRead(LDR);
+    ldrMin=min(ldrMin,v);
+    ldrMax=max(ldrMax,v);
+    delay(50);
   }
-
-  if (ldrMax - ldrMin < 20) {
-    ldrMin = 0;
-    ldrMax = 1023;
+  if(ldrMax-ldrMin<20){
+    ldrMin=0;
+    ldrMax=1023;
   }
-
-  lcd.clear();
-  lcd.print("LDR calibrado");
-  delay(1000);
 }
 
-// ================= LEITURA DOS SENSORES =================
-void lerSensores() {
-  float somaTemp = 0;
-  float somaUmid = 0;
-  long somaLuz = 0;
-
-  int validas = 0;
-
-  for (int i = 0; i < 10; i++) {
-    float t = dht.readTemperature();
-    float u = dht.readHumidity();
-    int raw = analogRead(LDR);
-
-    if (raw < ldrMin) ldrMin = raw;
-    if (raw > ldrMax) ldrMax = raw;
-
-    int luzMap = map(raw, ldrMin, ldrMax, 0, 100);
-    luzMap = constrain(luzMap, 0, 100);
-
-    somaLuz += luzMap;
-
-    if (!isnan(t) && !isnan(u)) {
-      somaTemp += t;
-      somaUmid += u;
-      validas++;
-    }
-
-    delay(100);
+void lerSensores(){
+  float t=dht.readTemperature();
+  float u=dht.readHumidity();
+  if(!isnan(t))temp=t;
+  if(!isnan(u))umid=u;
+  long soma=0;
+  for(int i=0;i<10;i++){
+    int raw=analogRead(LDR);
+    ldrMin=min(ldrMin,raw);
+    ldrMax=max(ldrMax,raw);
+    soma+=constrain(
+      map(raw,ldrMin,ldrMax,100,0),
+      0,100
+    );
+    delay(20);
   }
-
-  if (validas > 0) {
-    temp = somaTemp / validas;
-    umid = somaUmid / validas;
-  }
-
-  luz = somaLuz / 10;
+  luz=soma/10;
 }
 
-// ================= ANÁLISE DO AMBIENTE =================
-void analisarAmbiente() {
-  bool tempCritica = temp < TEMP_MIN || temp > TEMP_MAX;
-  bool umidCritica = umid < UMID_MIN || umid > UMID_MAX;
-  bool luzCritica = luz > LUZ_ALERTA;
-  bool luzMedia = luz > LUZ_OK && luz <= LUZ_ALERTA;
+bool tempOk(){return temp>=TMIN&&temp<=TMAX;}
+bool tempCrit(){return temp<TCRITMIN||temp>TCRITMAX;}
+bool umidOk(){return umid>=UMIN&&umid<=UMAX;}
+bool umidCrit(){return umid<UCRITMIN||umid>UCRITMAX;}
+bool luzOk(){return luz<=LOK;}
+bool luzCrit(){return luz>LALERTA;}
+bool ideal(){return tempOk()&&umidOk()&&luzOk();}
+bool critico(){return tempCrit()||umidCrit()||luzCrit();}
+bool alerta(){return !ideal()&&!critico();}
 
-  if (tempCritica || umidCritica || luzCritica) {
-    digitalWrite(LED_OK, LOW);
-    digitalWrite(LED_ALERTA, LOW);
-    digitalWrite(LED_CRITICO, HIGH);
-    tone(BUZZER, 1000, 300);
-  }
+void analisar(){
 
-  else if (luzMedia) {
-    digitalWrite(LED_OK, LOW);
-    digitalWrite(LED_ALERTA, HIGH);
-    digitalWrite(LED_CRITICO, LOW);
-    tone(BUZZER, 500, 150);
-  }
-
-  else {
-    digitalWrite(LED_OK, HIGH);
-    digitalWrite(LED_ALERTA, LOW);
-    digitalWrite(LED_CRITICO, LOW);
+  digitalWrite(LED_OK,ideal());
+  digitalWrite(LED_ALERTA,alerta());
+  digitalWrite(LED_CRITICO,critico());
+}
+void buzzer(){
+  if(ideal()){
     noTone(BUZZER);
+    return;
+  }
+  if(millis()-tBuzz>=T_BUZZ){
+    tBuzz=millis();
+    if(critico())
+      tone(BUZZER,1000,800);
+    else
+      tone(BUZZER,600,500);
   }
 }
-
-// ================= DATA E HORA =================
-DateTime agora() {
-  DateTime now = rtc.now();
-  return DateTime(now.unixtime() + utcOffset * 3600);
+DateTime agora(){
+  return DateTime(rtc.now().unixtime()+UTC*3600);
 }
-
-void print2(int valor) {
-  if (valor < 10) lcd.print("0");
-  lcd.print(valor);
+void p2(int v){
+  if(v<10)lcd.print("0");
+  lcd.print(v);
 }
-
-void serial2(int valor) {
-  if (valor < 10) Serial.print("0");
-  Serial.print(valor);
+void s2(int v){
+  if(v<10)Serial.print("0");
+  Serial.print(v);
 }
-
-// ================= LCD =================
-void mostrarTela() {
+void telaLCD(){
   lcd.clear();
-
-  if (tela == 0) {
-    DateTime dt = agora();
-
-    lcd.print(idiomaPT ? "Data: " : "Date: ");
-    print2(dt.day());
-    lcd.print("/");
-    print2(dt.month());
-    lcd.print("/");
-    lcd.print(dt.year());
-
-    lcd.setCursor(0, 1);
-    lcd.print(idiomaPT ? "Hora: " : "Time: ");
-    print2(dt.hour());
-    lcd.print(":");
-    print2(dt.minute());
-    lcd.print(":");
-    print2(dt.second());
-  }
-
-  else if (tela == 1) {
-    lcd.print("Temp: ");
-    lcd.print(temp, 1);
-    lcd.print((char)223);
-    lcd.print("C");
-
-    lcd.setCursor(0, 1);
-
-    if (temp < TEMP_MIN) {
-      lcd.print(idiomaPT ? "Temp. BAIXA" : "TEMP LOW");
-    } else if (temp > TEMP_MAX) {
-      lcd.print(idiomaPT ? "Temp. ALTA" : "TEMP HIGH");
-    } else {
-      lcd.print(idiomaPT ? "Temp. OK" : "TEMP OK");
-    }
-  }
-
-  else if (tela == 2) {
-    lcd.print(idiomaPT ? "Umidade: " : "Humidity: ");
-    lcd.print(umid, 0);
-    lcd.print("% ");
-    lcd.write(byte(2));
-
-    lcd.setCursor(0, 1);
-
-    if (umid < UMID_MIN) {
-      lcd.print(idiomaPT ? "Umid. BAIXA" : "HUM LOW");
-    } else if (umid > UMID_MAX) {
-      lcd.print(idiomaPT ? "Umid. ALTA" : "HUM HIGH");
-    } else {
-      lcd.print(idiomaPT ? "Umidade OK" : "HUM OK");
-    }
-  }
-
-  else if (tela == 3) {
-    lcd.print(idiomaPT ? "Luz: " : "Light: ");
-    lcd.print(luz);
-    lcd.print("% ");
-    lcd.write(byte(3));
-
-    lcd.setCursor(0, 1);
-
-    if (luz > LUZ_ALERTA) {
-      lcd.print(idiomaPT ? "Muito CLARO" : "TOO BRIGHT");
-    } else if (luz > LUZ_OK) {
-      lcd.print(idiomaPT ? "Meia luz" : "Half light");
-    } else {
-      lcd.print(idiomaPT ? "Penumbra ideal" : "Ideal shade");
-    }
-  }
-
-  else {
-    lcd.print(idiomaPT ? "Status Adega" : "Cellar Status");
-    lcd.setCursor(0, 1);
-
-    if (
-      temp >= TEMP_MIN &&
-      temp <= TEMP_MAX &&
-      umid >= UMID_MIN &&
-      umid <= UMID_MAX &&
-      luz <= LUZ_OK
-    ) {
-      lcd.print(idiomaPT ? "Cond. Premium" : "Premium Cond.");
-    } else {
-      lcd.print(idiomaPT ? "Verificar Vinho" : "Check Wine");
-    }
+  DateTime dt=agora();
+  switch(tela){
+    case 0:
+      lcd.print(pt?"Data: ":"Date: ");
+      p2(dt.day());lcd.print("/");
+      p2(dt.month());lcd.print("/");
+      lcd.print(dt.year());
+      lcd.setCursor(0,1);
+      lcd.print(pt?"Hora: ":"Time: ");
+      p2(dt.hour());lcd.print(":");
+      p2(dt.minute());lcd.print(":");
+      p2(dt.second());
+    break;
+    case 1:
+      lcd.print("Temp: ");
+      lcd.print(temp,1);
+      lcd.print((char)223);
+      lcd.print("C");
+      lcd.setCursor(0,1);
+      lcd.print(
+        tempOk()?"Ideal ~13C":
+        tempCrit()?"TEMP CRITICA":
+        "Ajustar temp."
+      );
+    break;
+    case 2:
+      lcd.print(pt?"Umidade: ":"Humidity: ");
+      lcd.print(umid,0);
+      lcd.print("% ");
+      lcd.write(byte(2));
+      lcd.setCursor(0,1);
+      lcd.print(
+        umidOk()?"Ideal 60-80%":
+        umidCrit()?"UMID CRITICA":
+        "Ajustar umid."
+      );
+    break;
+    case 3:
+      lcd.print(pt?"Luz: ":"Light: ");
+      lcd.print(luz);
+      lcd.print("% ");
+      lcd.write(byte(3));
+      lcd.setCursor(0,1);
+      lcd.print(
+        luzOk()?"Penumbra":
+        luzCrit()?"MUITA LUZ":
+        "Luz alerta"
+      );
+    break;
+    case 4:
+      lcd.print(pt?"Status Adega":"Cellar Status");
+      lcd.setCursor(0,1);
+      lcd.print(
+        ideal()?"Cond. Premium":
+        critico()?"Risco vinho":
+        "Atencao"
+      );
+    break;
   }
 }
 
-// ================= BOTÃO DE IDIOMA =================
-void verificarBotaoIdioma() {
-  if (digitalRead(BTN_IDIOMA) == LOW && millis() - tempoBotao > 300) {
-    tempoBotao = millis();
-
-    idiomaPT = !idiomaPT;
-
+void botaoIdioma(){
+  static bool ultimo=HIGH;
+  bool leitura=digitalRead(BTN);
+  if(ultimo==HIGH&&leitura==LOW){
+    pt=!pt;
     lcd.clear();
     lcd.print("Idioma:");
-    lcd.setCursor(0, 1);
-    lcd.print(idiomaPT ? "Portugues" : "English");
-
-    delay(800);
-    mostrarTela();
+    lcd.setCursor(0,1);
+    lcd.print(pt?"Portugues":"English");
+    delay(700);
+    telaLCD();
   }
+  ultimo=leitura;
 }
 
-// ================= EEPROM =================
-void salvarLog() {
-  byte erro = 0;
-
-  if (temp < TEMP_MIN || temp > TEMP_MAX) erro += 1;
-  if (umid < UMID_MIN || umid > UMID_MAX) erro += 2;
-  if (luz > LUZ_ALERTA) erro += 4;
-
-  if (erro == 0) return;
-
-  DateTime dt = agora();
-
-  int tempInt = temp * 100;
-  int umidInt = umid * 100;
-  byte luzInt = luz;
-
-  EEPROM.put(enderecoEEPROM, dt.unixtime());
-  EEPROM.put(enderecoEEPROM + 4, tempInt);
-  EEPROM.put(enderecoEEPROM + 6, umidInt);
-  EEPROM.put(enderecoEEPROM + 8, luzInt);
-  EEPROM.put(enderecoEEPROM + 9, erro);
-
-  enderecoEEPROM += 10;
-
-  if (enderecoEEPROM >= 1000) {
-    enderecoEEPROM = 0;
-  }
+void salvarLog(){
+  if(ideal())return;
+  if(millis()-tLog<T_LOG)return;
+  tLog=millis();
+  byte erro=0;
+  if(!tempOk())erro+=1;
+  if(!umidOk())erro+=2;
+  if(!luzOk())erro+=4;
+  DateTime dt=agora();
+  EEPROM.put(addr,dt.unixtime());
+  EEPROM.put(addr+4,int(temp*100));
+  EEPROM.put(addr+6,int(umid*100));
+  EEPROM.put(addr+8,byte(luz));
+  EEPROM.put(addr+9,erro);
+  addr+=10;
+  if(addr>=1000)addr=0;
 }
 
-// ================= SERIAL =================
-void imprimirSerial() {
-  DateTime dt = agora();
-
+void serialLog(){
+  DateTime dt=agora();
   Serial.print("Leitura ");
-  serial2(dt.day());
-  Serial.print("/");
-  serial2(dt.month());
-  Serial.print("/");
-  Serial.print(dt.year());
-  Serial.print(" ");
-  serial2(dt.hour());
-  Serial.print(":");
-  serial2(dt.minute());
-  Serial.print(":");
-  serial2(dt.second());
-
+  s2(dt.day());Serial.print("/");
+  s2(dt.month());Serial.print("/");
+  Serial.print(dt.year());Serial.print(" ");
+  s2(dt.hour());Serial.print(":");
+  s2(dt.minute());Serial.print(":");
+  s2(dt.second());
   Serial.print(" | Temp: ");
-  Serial.print(temp, 1);
+  Serial.print(temp,1);
   Serial.print("C | Umid: ");
-  Serial.print(umid, 0);
+  Serial.print(umid,0);
   Serial.print("% | Luz: ");
   Serial.print(luz);
-  Serial.println("%");
+  Serial.print("% | Status: ");
+  Serial.println(
+    ideal()?"IDEAL":
+    critico()?"CRITICO":
+    "ALERTA"
+  );
 }
